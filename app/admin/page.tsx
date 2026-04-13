@@ -1,6 +1,81 @@
 import Link from "next/link";
-import { Skeleton } from "@/components/Skeleton";
 import { requireAdmin } from "@/lib/require-admin";
+
+const stats = [
+  {
+    label: "Total Orders",
+    value: "128",
+    change: "+12%",
+    href: "/admin/orders",
+  },
+  { label: "Products", value: "34", change: "+3", href: "/admin/products" },
+  {
+    label: "Revenue",
+    value: "PKR 842,500",
+    change: "+18%",
+    href: "/admin/orders",
+  },
+  {
+    label: "Pending",
+    value: "7",
+    change: "needs action",
+    href: "/admin/orders",
+  },
+];
+
+const recentOrders = [
+  {
+    id: "ORD-1042",
+    customer: "Ayesha Khan",
+    amount: "PKR 6,500",
+    status: "Delivered",
+    date: "Apr 12, 2026",
+  },
+  {
+    id: "ORD-1041",
+    customer: "Omar Farooq",
+    amount: "PKR 9,900",
+    status: "Shipped",
+    date: "Apr 11, 2026",
+  },
+  {
+    id: "ORD-1040",
+    customer: "Sara Ahmed",
+    amount: "PKR 4,200",
+    status: "Processing",
+    date: "Apr 11, 2026",
+  },
+  {
+    id: "ORD-1039",
+    customer: "Ali Raza",
+    amount: "PKR 3,100",
+    status: "Delivered",
+    date: "Apr 10, 2026",
+  },
+  {
+    id: "ORD-1038",
+    customer: "Hina Malik",
+    amount: "PKR 5,300",
+    status: "Pending",
+    date: "Apr 10, 2026",
+  },
+  {
+    id: "ORD-1037",
+    customer: "Bilal Sheikh",
+    amount: "PKR 3,700",
+    status: "Delivered",
+    date: "Apr 9, 2026",
+  },
+];
+
+const statusColor: Record<string, string> = {
+  Delivered:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  Shipped: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  Processing:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+  Pending: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
 
 export default async function AdminDashboardPage() {
   await requireAdmin();
@@ -13,7 +88,7 @@ export default async function AdminDashboardPage() {
             Admin Dashboard
           </h1>
           <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-            Manage orders, products, and stock. (UI placeholder)
+            Manage orders, products, and stock.
           </p>
         </div>
         <div className="flex gap-3">
@@ -22,6 +97,12 @@ export default async function AdminDashboardPage() {
             className="inline-flex h-10 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-white transition hover:bg-indigo-600"
           >
             Products
+          </Link>
+          <Link
+            href="/admin/categories"
+            className="inline-flex h-10 items-center justify-center rounded-2xl bg-primary/10 px-4 text-sm font-semibold text-primary transition hover:bg-primary/20"
+          >
+            Categories
           </Link>
           <Link
             href="/admin/orders"
@@ -33,17 +114,22 @@ export default async function AdminDashboardPage() {
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-[2rem] border border-black/5 bg-white/70 p-5 shadow-sm shadow-black/5 backdrop-blur"
+        {stats.map((stat) => (
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className="rounded-[2rem] border border-black/5 bg-white/70 p-5 shadow-sm shadow-black/5 backdrop-blur transition hover:shadow-md"
           >
-            <Skeleton className="h-4 w-24 rounded-xl" />
-            <div className="mt-3 text-2xl font-semibold text-zinc-950 dark:text-white">
-              <Skeleton className="h-8 w-20 rounded-xl" />
+            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              {stat.label}
             </div>
-            <Skeleton className="mt-3 h-10 w-full rounded-2xl" />
-          </div>
+            <div className="mt-2 text-2xl font-semibold text-zinc-950 dark:text-white">
+              {stat.value}
+            </div>
+            <div className="mt-2 inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+              {stat.change}
+            </div>
+          </Link>
         ))}
       </div>
 
@@ -52,19 +138,37 @@ export default async function AdminDashboardPage() {
           Recent orders
         </div>
         <div className="mt-4 grid gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {recentOrders.map((order) => (
             <div
-              key={i}
+              key={order.id}
               className="flex items-center justify-between gap-4 rounded-2xl border border-black/10 bg-white/70 px-4 py-3 dark:bg-black/20"
             >
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-black/5 dark:bg-white/10" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-xs font-bold text-primary">
+                  {order.customer
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </div>
                 <div>
-                  <Skeleton className="h-4 w-36 rounded-xl" />
-                  <Skeleton className="mt-2 h-3 w-24 rounded-xl" />
+                  <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {order.customer}
+                  </div>
+                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    {order.id} · {order.date}
+                  </div>
                 </div>
               </div>
-              <Skeleton className="h-8 w-24 rounded-2xl" />
+              <div className="flex items-center gap-3">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusColor[order.status] ?? ""}`}
+                >
+                  {order.status}
+                </span>
+                <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  {order.amount}
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -72,4 +176,3 @@ export default async function AdminDashboardPage() {
     </div>
   );
 }
-

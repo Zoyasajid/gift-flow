@@ -16,3 +16,25 @@ export async function createOrder(input: CreateOrderInput = {}) {
   return { id: created.id, ...created.data() };
 }
 
+export async function updateOrderPayment(
+  orderId: string,
+  data: {
+    status: string;
+    stripeSessionId?: string;
+    stripePaymentIntentId?: string;
+  },
+) {
+  const db = getDb();
+  const ref = db.collection("orders").doc(orderId);
+  await ref.update({
+    ...data,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+export async function getOrderById(orderId: string) {
+  const db = getDb();
+  const doc = await db.collection("orders").doc(orderId).get();
+  if (!doc.exists) return null;
+  return { id: doc.id, ...(doc.data() as Record<string, unknown>) };
+}

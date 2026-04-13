@@ -1,14 +1,34 @@
 import Hero from "@/components/Hero";
-import { Skeleton } from "@/components/Skeleton";
+import ProductCard from "@/components/ProductCard";
+import type { ProductCardModel } from "@/components/ProductCard";
 import Link from "next/link";
+import AnimatedSection from "@/components/AnimatedSection";
+import { getProducts } from "@/models/product";
 
-export default function Home() {
+export default async function Home() {
+  let products: ProductCardModel[] = [];
+  try {
+    const dbProducts = await getProducts();
+    products = dbProducts.map((p) => ({
+      id: p.id,
+      name: p.title || p.name,
+      description: p.description,
+      price: p.price,
+      category: p.category,
+      images: p.images,
+    }));
+  } catch {
+    // Keep empty when Firebase is not configured yet.
+  }
+
+  const featured = products.slice(0, 6);
+
   return (
     <div className="bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white via-white to-transparent dark:from-black dark:via-black">
       <Hero />
 
       <section className="mx-auto w-full max-w-6xl px-4 pb-16">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <AnimatedSection className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-zinc-950 dark:text-white">
               Curated for every occasion
@@ -23,20 +43,19 @@ export default function Home() {
           >
             Explore all products
           </Link>
-        </div>
+        </AnimatedSection>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-3xl border border-black/5 bg-white/60 p-4">
-              <Skeleton className="h-44 w-full rounded-2xl" />
-              <div className="mt-4 space-y-3">
-                <Skeleton className="h-4 w-3/4 rounded-xl" />
-                <Skeleton className="h-4 w-2/3 rounded-xl" />
-                <Skeleton className="mt-2 h-10 w-full rounded-2xl" />
-              </div>
-            </div>
-          ))}
-        </div>
+        {featured.length > 0 ? (
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {featured.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-8 text-center text-sm text-zinc-500">
+            No products available yet.
+          </p>
+        )}
       </section>
     </div>
   );

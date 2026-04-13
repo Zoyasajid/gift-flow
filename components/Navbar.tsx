@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useCart } from "@/hooks/useCart";
 
 function NavLink({
   href,
@@ -36,37 +38,16 @@ function NavLink({
 export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { cartCount } = useCart();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadUser() {
-      try {
-        const res = await fetch("/api/auth/me", { cache: "no-store" });
-        const data = (await res.json()) as { user?: { role?: string } | null };
-        if (!cancelled) {
-          setIsAdmin(data.user?.role === "ADMIN");
-        }
-      } catch {
-        if (!cancelled) setIsAdmin(false);
-      }
-    }
-
-    void loadUser();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Hide navbar entirely on admin pages
+  if (pathname?.startsWith("/admin")) return null;
 
   const links = [
     { href: "/products", label: "Products" },
-    { href: "/cart", label: "Cart" },
-    { href: "/checkout", label: "Checkout" },
+    { href: "/categories", label: "Categories" },
+    { href: "/cart", label: `Cart${cartCount > 0 ? ` (${cartCount})` : ""}` },
   ];
-  if (isAdmin) {
-    links.push({ href: "/admin", label: "Admin" });
-  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-black/5 bg-white/70 backdrop-blur dark:bg-black/40">
@@ -80,7 +61,10 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
+        <nav
+          className="hidden items-center gap-1 md:flex"
+          aria-label="Primary navigation"
+        >
           {links.map((l) => (
             <NavLink
               key={l.href}
@@ -92,19 +76,11 @@ export default function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          {!isAdmin ? (
-            <Link
-              href="/admin/login"
-              className="inline-flex h-10 items-center justify-center rounded-2xl border border-black/10 bg-white/80 px-4 text-sm font-semibold text-zinc-900 transition hover:bg-white dark:border-white/10 dark:bg-black/30 dark:text-white"
-            >
-              Admin login
-            </Link>
-          ) : null}
           <Link
             href="/checkout"
             className="inline-flex h-10 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-500/25 transition hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
-            Get started
+            Checkout
           </Link>
         </div>
 
@@ -118,36 +94,35 @@ export default function Navbar() {
         </button>
       </div>
 
-      {open ? (
-        <div className="border-t border-black/5 bg-white/80 backdrop-blur dark:bg-black/50 md:hidden">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3">
-            {links.map((l) => (
-              <NavLink
-                key={l.href}
-                href={l.href}
-                label={l.label}
-                pathname={pathname ?? "/"}
-              />
-            ))}
-            {!isAdmin ? (
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.25, 0.4, 0.25, 1] }}
+            className="overflow-hidden border-t border-black/5 bg-white/80 backdrop-blur dark:bg-black/50 md:hidden"
+          >
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3">
+              {links.map((l) => (
+                <NavLink
+                  key={l.href}
+                  href={l.href}
+                  label={l.label}
+                  pathname={pathname ?? "/"}
+                />
+              ))}
               <Link
-                href="/admin/login"
-                className="rounded-xl px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-black/5 hover:text-zinc-950 dark:text-zinc-200 dark:hover:bg-white/5 dark:hover:text-white"
+                href="/checkout"
+                className="mt-2 inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-500/25 transition hover:bg-indigo-600"
+                onClick={() => setOpen(false)}
               >
-                Admin login
+                Checkout
               </Link>
-            ) : null}
-            <Link
-              href="/checkout"
-              className="mt-2 inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-500/25 transition hover:bg-indigo-600"
-              onClick={() => setOpen(false)}
-            >
-              Get started
-            </Link>
-          </div>
-        </div>
-      ) : null}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </header>
   );
 }
-

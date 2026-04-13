@@ -18,7 +18,10 @@ function slugify(name: string) {
 
 export async function getCategories(): Promise<CategoryRecord[]> {
   const db = getDb();
-  const snapshot = await db.collection("categories").orderBy("name", "asc").get();
+  const snapshot = await db
+    .collection("categories")
+    .orderBy("name", "asc")
+    .get();
   return snapshot.docs.map((doc) => {
     const data = doc.data() as Omit<CategoryRecord, "id">;
     return { id: doc.id, ...data };
@@ -48,6 +51,38 @@ export async function createCategory(input: {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  return { id: ref.id, name, slug, description: input.description?.trim() || "" };
+  return {
+    id: ref.id,
+    name,
+    slug,
+    description: input.description?.trim() || "",
+  };
 }
 
+export async function updateCategory(
+  id: string,
+  input: { name?: string; description?: string },
+) {
+  const db = getDb();
+  const ref = db.collection("categories").doc(id);
+  const doc = await ref.get();
+  if (!doc.exists) {
+    throw new Error("Category not found.");
+  }
+
+  const updates: Record<string, unknown> = {
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  if (input.name !== undefined) {
+    updates.name = input.name.trim();
+  }
+  if (input.description !== undefined) {
+    updates.description = input.description.trim();
+  }
+
+  await ref.update(updates);
+  const updated = await ref.get();
+  const data = updated.data() as Omit<CategoryRecord, "id">;
+  return { id: updated.id, ...data };
+}

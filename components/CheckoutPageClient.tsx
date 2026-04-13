@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCart } from "@/hooks/useCart";
 import { formatPKR } from "@/utils/formatPKR";
 
 type Step = 1 | 2;
@@ -9,9 +10,10 @@ type Step = 1 | 2;
 export default function CheckoutPageClient() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
+  const { items, cartTotal, clearCart } = useCart();
+  const [submitting, setSubmitting] = useState(false);
 
-  // Placeholder totals until cart is wired.
-  const totalAmount = 6500;
+  const totalAmount = cartTotal;
 
   const [sendAsGift, setSendAsGift] = useState(true);
   const [customer, setCustomer] = useState({
@@ -35,12 +37,84 @@ export default function CheckoutPageClient() {
       if (!recipient.deliveryDate.trim()) return true;
     }
     return false;
-  }, [customer.name, recipient.address, recipient.deliveryDate, recipient.name, sendAsGift]);
+  }, [
+    customer.name,
+    recipient.address,
+    recipient.deliveryDate,
+    recipient.name,
+    sendAsGift,
+  ]);
 
   async function onMockPay() {
-    // Mock payment delay.
-    await new Promise((r) => setTimeout(r, 900));
-    router.push("/order-success");
+    setSubmitting(true);
+    try {
+      // 1. Create the order in Firebase
+      const orderBody: Record<string, unknown> = {
+        customer: {
+          name: customer.name.trim(),
+          email: customer.email.trim(),
+          phone: customer.phone.trim(),
+          address: customer.address.trim(),
+        },
+        sendAsGift: !!sendAsGift,
+        items: items.map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+        })),
+      };
+      if (sendAsGift) {
+        orderBody.recipient = {
+          name: recipient.name.trim(),
+          address: recipient.address.trim(),
+          deliveryDate: recipient.deliveryDate,
+          messageCard: recipient.messageCard.trim(),
+        };
+      }
+      const orderRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderBody),
+      });
+      const orderData = (await orderRes.json()) as {
+        ok?: boolean;
+        order?: { id: string };
+        message?: string;
+      };
+      if (!orderRes.ok || !orderData.order?.id) {
+        throw new Error(orderData.message ?? "Order failed");
+      }
+
+      // 2. Create Stripe Checkout Session
+      const checkoutRes = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: orderData.order.id,
+          items: items.map((i) => ({
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+          })),
+        }),
+      });
+      const checkoutData = (await checkoutRes.json()) as {
+        url?: string;
+        message?: string;
+      };
+      if (!checkoutRes.ok || !checkoutData.url) {
+        throw new Error(checkoutData.message ?? "Payment session failed");
+      }
+
+      // 3. Clear cart and redirect to Stripe
+      clearCart();
+      window.location.href = checkoutData.url;
+    } catch {
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -101,7 +175,9 @@ export default function CheckoutPageClient() {
                   Full name
                   <input
                     value={customer.name}
-                    onChange={(e) => setCustomer((c) => ({ ...c, name: e.target.value }))}
+                    onChange={(e) =>
+                      setCustomer((c) => ({ ...c, name: e.target.value }))
+                    }
                     className="mt-2 w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/20 dark:bg-black/20"
                     placeholder="e.g. Ayesha Khan"
                   />
@@ -110,7 +186,9 @@ export default function CheckoutPageClient() {
                   Email (optional)
                   <input
                     value={customer.email}
-                    onChange={(e) => setCustomer((c) => ({ ...c, email: e.target.value }))}
+                    onChange={(e) =>
+                      setCustomer((c) => ({ ...c, email: e.target.value }))
+                    }
                     className="mt-2 w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/20 dark:bg-black/20"
                     placeholder="you@example.com"
                   />
@@ -122,7 +200,9 @@ export default function CheckoutPageClient() {
                   Phone (optional)
                   <input
                     value={customer.phone}
-                    onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))}
+                    onChange={(e) =>
+                      setCustomer((c) => ({ ...c, phone: e.target.value }))
+                    }
                     className="mt-2 w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/20 dark:bg-black/20"
                     placeholder="+92..."
                   />
@@ -131,7 +211,9 @@ export default function CheckoutPageClient() {
                   Billing address
                   <input
                     value={customer.address}
-                    onChange={(e) => setCustomer((c) => ({ ...c, address: e.target.value }))}
+                    onChange={(e) =>
+                      setCustomer((c) => ({ ...c, address: e.target.value }))
+                    }
                     className="mt-2 w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/20 dark:bg-black/20"
                     placeholder="Street, area, city"
                   />
@@ -202,7 +284,10 @@ export default function CheckoutPageClient() {
                         type="date"
                         value={recipient.deliveryDate}
                         onChange={(e) =>
-                          setRecipient((r) => ({ ...r, deliveryDate: e.target.value }))
+                          setRecipient((r) => ({
+                            ...r,
+                            deliveryDate: e.target.value,
+                          }))
                         }
                         className="mt-2 w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/20 dark:bg-black/20"
                       />
@@ -224,7 +309,10 @@ export default function CheckoutPageClient() {
                     <textarea
                       value={recipient.messageCard}
                       onChange={(e) =>
-                        setRecipient((r) => ({ ...r, messageCard: e.target.value }))
+                        setRecipient((r) => ({
+                          ...r,
+                          messageCard: e.target.value,
+                        }))
                       }
                       className="mt-2 w-full resize-none rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/20 dark:bg-black/20"
                       placeholder="Write something thoughtful..."
@@ -234,8 +322,8 @@ export default function CheckoutPageClient() {
                 </>
               ) : (
                 <div className="rounded-3xl border border-black/10 bg-white/60 p-4 text-sm text-zinc-600 dark:text-zinc-300">
-                  Gift toggle is off. We’ll deliver to your billing details (to be wired
-                  later).
+                  Gift toggle is off. We’ll deliver to your billing details (to
+                  be wired later).
                 </div>
               )}
 
@@ -246,11 +334,13 @@ export default function CheckoutPageClient() {
                       Payment
                     </div>
                     <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-                      Mock Stripe payment for now.
+                      Secure payment via Stripe.
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs font-semibold text-zinc-500">Amount</div>
+                    <div className="text-xs font-semibold text-zinc-500">
+                      Amount
+                    </div>
                     <div className="mt-1 text-lg font-bold text-zinc-950 dark:text-white">
                       {formatPKR(totalAmount)}
                     </div>
@@ -260,10 +350,10 @@ export default function CheckoutPageClient() {
                 <button
                   type="button"
                   onClick={onMockPay}
-                  disabled={disabled}
+                  disabled={disabled || submitting || items.length === 0}
                   className="mt-4 w-full rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-600 disabled:opacity-60"
                 >
-                  Pay securely (mock)
+                  {submitting ? "Redirecting to payment…" : "Pay with Stripe"}
                 </button>
               </div>
 
@@ -293,14 +383,27 @@ export default function CheckoutPageClient() {
                 </div>
               </div>
               <div className="mt-3 space-y-3">
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className="flex items-center justify-between gap-3">
-                    <div className="h-9 w-9 rounded-2xl bg-black/5 dark:bg-white/10" />
+                {items.map((item) => (
+                  <div
+                    key={item.productId}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="h-9 w-9 rounded-2xl object-cover"
+                    />
                     <div className="flex-1">
-                      <div className="h-4 w-28 rounded-xl bg-black/5 dark:bg-white/10" />
-                      <div className="mt-2 h-3 w-20 rounded-xl bg-black/5 dark:bg-white/10" />
+                      <div className="text-sm text-zinc-700 dark:text-zinc-300 line-clamp-1">
+                        {item.name}
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        ×{item.quantity}
+                      </div>
                     </div>
-                    <div className="h-4 w-10 rounded-xl bg-black/5 dark:bg-white/10" />
+                    <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      {formatPKR(item.price * item.quantity)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -313,7 +416,9 @@ export default function CheckoutPageClient() {
             </div>
 
             <div className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
-              Gift details and totals will be pulled from your cart once connected.
+              {items.length === 0
+                ? "Your cart is empty. Add items before checking out."
+                : `${items.length} item${items.length !== 1 ? "s" : ""} in your cart.`}
             </div>
           </div>
         </div>
@@ -321,4 +426,3 @@ export default function CheckoutPageClient() {
     </div>
   );
 }
-

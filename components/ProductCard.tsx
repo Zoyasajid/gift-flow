@@ -1,6 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { formatPKR } from "@/utils/formatPKR";
+import { useCart } from "@/hooks/useCart";
 
 export type ProductCardModel = {
   id: string;
@@ -11,11 +15,22 @@ export type ProductCardModel = {
   category?: string;
 };
 
-export default function ProductCard({ product }: { product: ProductCardModel }) {
+export default function ProductCard({
+  product,
+}: {
+  product: ProductCardModel;
+}) {
   const image = product.images?.[0] ?? "/placeholder.png";
+  const { addToCart } = useCart();
 
   return (
-    <div className="group rounded-3xl border border-black/5 bg-white/70 p-4 shadow-sm shadow-black/5 backdrop-blur transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10 dark:bg-black/20 dark:shadow-none">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      className="group rounded-3xl border border-black/5 bg-white/70 p-4 shadow-sm shadow-black/5 backdrop-blur transition hover:shadow-lg hover:shadow-black/10 dark:bg-black/20 dark:shadow-none"
+    >
       <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-black/5 dark:bg-white/5">
         {/* unoptimized avoids Next image domain config during early development */}
         <Image
@@ -62,14 +77,20 @@ export default function ProductCard({ product }: { product: ProductCardModel }) 
           </Link>
           <button
             type="button"
-            disabled
-            className="inline-flex h-10 items-center justify-center rounded-2xl border border-black/10 bg-white/80 px-4 text-sm font-semibold text-zinc-900 opacity-60 transition hover:bg-white dark:bg-black/20 dark:text-zinc-100"
+            onClick={() =>
+              addToCart({
+                productId: product.id,
+                name: product.name,
+                price: product.price,
+                image,
+              })
+            }
+            className="inline-flex cursor-pointer h-10 items-center justify-center rounded-2xl border border-black/10 bg-white/80 px-4 text-sm font-semibold text-zinc-900 transition hover:bg-white dark:bg-black/20 dark:text-zinc-100"
           >
             Add to cart
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
-
