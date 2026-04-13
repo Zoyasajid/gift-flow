@@ -38,3 +38,25 @@ export async function getOrderById(orderId: string) {
   if (!doc.exists) return null;
   return { id: doc.id, ...(doc.data() as Record<string, unknown>) };
 }
+
+export type OrderRecord = {
+  id: string;
+  customer?: { name?: string };
+  items?: { name?: string; price?: number; quantity?: number }[];
+  total?: number;
+  status?: string;
+  createdAt?: { toDate?: () => Date };
+  [key: string]: unknown;
+};
+
+export async function getOrders(): Promise<OrderRecord[]> {
+  const db = getDb();
+  const snapshot = await db
+    .collection("orders")
+    .orderBy("createdAt", "desc")
+    .get();
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Omit<OrderRecord, "id">;
+    return { id: doc.id, ...data };
+  });
+}
